@@ -19,29 +19,44 @@ Juice = namedtuple('Juice', ['imports', 'statements', 'exports'])
 def is_return(s):
     return isinstance(s, asttypes.Return)
 
+def is_define(s):
+    if not isinstance(s, asttypes.ExprStatement):
+        return False
+    return isinstance(s, asttypes.ExprStatement) \
+            and hasattr(s.expr, 'identifier') \
+            and hasattr(s.expr.identifier, 'value') \
+            and s.expr.identifier.value == "define"
+
+def juice_from_statement(statement):
+    import_source, dependent_code = statement.expr.args.items
+    imported_names = dependent_code.parameters
+    statements = [s for s in dependent_code.elements if not is_return(s) and not is_define(s)]
+
+    for define_statement in [s for s in dependent_code.elements if is_define(s)]:
+        yield from juice_from_statement(define_statement)
+
+    rstatement = next(filter(is_return, dependent_code.elements), None)
+
+    yield Juice(imports=zip(import_source.items, imported_names), statements=statements, exports=rstatement)
+
 def juice(tree):
     if not isinstance(tree, asttypes.ES5Program):
         raise Exception("not a program")
 
     for statement in tree.children():
         if not isinstance(statement, asttypes.ExprStatement):
-            continue
-        if statement.expr.identifier.value != "define":
-            continue
-        import_source, dependent_code = statement.expr.args.items
-        imported_names = dependent_code.parameters
-        statements = [s for s in dependent_code.elements if not is_return(s)]
-
-        rstatement = next(filter(is_return, dependent_code.elements), None)
-
-        yield Juice(imports=zip(import_source.items, imported_names), statements=statements, exports=rstatement)
+            yield Juice(imports=None, statements=statement, exports=None)
+        else:
+            yield from juice_from_statement(statement)
 
 def j(s):
-    for import_statement in s.imports:
-        source, name = import_statement
-        print("import * as {} = require({})".format(name.value, source.value))
+    if s.imports:
+        for import_statement in s.imports:
+            source, name = import_statement
+            print("import * as {} = require({})".format(name.value, source.value))
 
-    print('\n'.join([str(statement) for statement in s.statements]))
+    if s.statements:
+        print('\n'.join([str(statement) for statement in s.statements]))
 
     # returns, if any
     if s.exports:
