@@ -2,6 +2,8 @@ from glob import glob
 from collections import namedtuple
 from calmjs.parse import es5
 from calmjs.parse import asttypes
+from itertools import chain
+from typing import Iterable, Callable, TypeVar
 
 def parsed(fn):
     with open(fn, 'r') as f:
@@ -27,17 +29,35 @@ def is_define(s):
             and hasattr(s.expr.identifier, 'value') \
             and s.expr.identifier.value == "define"
 
+def flatten(iter: Iterable[Iterable]) -> Iterable:
+    return chain.from_iterable(iter)
+
+T = TypeVar('T')
+X = TypeVar('X')
+
+def append(l: Iterable[X], f: Callable[[T], X], inner: Iterable[Iterable[X]]):
+    return chain(l, [i for i in flatten(map(f, inner))])
+
 def juice_from_statement(statement):
     import_source, dependent_code = statement.expr.args.items
     imported_names = dependent_code.parameters
+
+    imports = zip(import_source.items, imported_names)
+
     statements = [s for s in dependent_code.elements if not is_return(s) and not is_define(s)]
 
-    for define_statement in [s for s in dependent_code.elements if is_define(s)]:
-        yield from juice_from_statement(define_statement)
+    nested_define_statements = [s for s in dependent_code.elements if is_define(s)]
+
+    if nested_define_statements:
+        inner_statements = list(flatten([juice_from_statement(s) for s in nested_define_statements]))
+        imports = chain(imports, [t for t in flatten([j.imports for j in inner_statements])])
+        statements = chain(statements, [s for s in flatten([j.statements for j in inner_statements])])
 
     rstatement = next(filter(is_return, dependent_code.elements), None)
 
-    yield Juice(imports=zip(import_source.items, imported_names), statements=statements, exports=rstatement)
+    yield Juice(imports=imports,
+            statements=statements, 
+            exports=rstatement)
 
 def juice(tree):
     if not isinstance(tree, asttypes.ES5Program):
