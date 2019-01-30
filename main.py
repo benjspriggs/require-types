@@ -1,11 +1,9 @@
 from glob import glob
 from collections import namedtuple
-from calmjs.parse import es5
-from calmjs.parse import asttypes
-from itertools import chain
-from typing import Iterable, Callable, TypeVar
+from calmjs.parse import es5, asttypes
+from utils import flatten, append
 
-def parsed(fn):
+def parsed(fn: str):
     with open(fn, 'r') as f:
         s = f.readlines()
     return es5('\n'.join(s))
@@ -28,15 +26,6 @@ def is_define(s):
             and hasattr(s.expr, 'identifier') \
             and hasattr(s.expr.identifier, 'value') \
             and s.expr.identifier.value == "define"
-
-def flatten(iter: Iterable[Iterable]) -> Iterable:
-    return chain.from_iterable(iter)
-
-T = TypeVar('T')
-X = TypeVar('X')
-
-def append(l: Iterable[X], f: Callable[[T], X], inner: Iterable[Iterable[X]]):
-    return chain(l, [i for i in flatten(map(f, inner))])
 
 def juice_from_statement(statement):
     import_source, dependent_code = statement.expr.args.items
