@@ -86,10 +86,13 @@ def format_juice(s):
             as_props = ', '.join(['{} as {}'.format(p.left.value, p.right.value) for p in props])
             yield ('export {{ {} }}'.format(as_props))
 
+def formatted(fn):
+    tree = parsed(fn)
+    return flatten([format_juice(j) for j in juice(tree)])
+
 def main():
     for fn in glob("tests/*"):
-        tree = parsed(fn)
-        print(list(flatten([format_juice(j) for j in juice(tree)])))
+        print(list(formatted(fn)))
 
 if __name__ == "__main__":
     main()
