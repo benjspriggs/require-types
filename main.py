@@ -54,11 +54,11 @@ def juice(tree):
 
     for statement in tree.children():
         if not isinstance(statement, asttypes.ExprStatement):
-            yield Juice(imports=None, statements=statement, exports=None)
+            yield Juice(imports=None, statements=[statement], exports=None)
         else:
             yield from juice_from_statement(statement)
 
-def j(s):
+def format_juice(s):
     if s.imports:
         for import_statement in s.imports:
             source, name = import_statement
@@ -89,9 +89,7 @@ def j(s):
 def main():
     for fn in glob("tests/*"):
         tree = parsed(fn)
-        l = juice(tree)
-        for x in l:
-            print(list(j(x)))
+        print(list(flatten([format_juice(j) for j in juice(tree)])))
 
 if __name__ == "__main__":
     main()
