@@ -50,8 +50,8 @@ def juice_from_statement(statement):
 
     if nested_define_statements:
         inner_statements = list(flatten([juice_from_statement(s) for s in nested_define_statements]))
-        imports = chain(imports, [t for t in flatten([j.imports for j in inner_statements])])
-        statements = chain(statements, [s for s in flatten([j.statements for j in inner_statements])])
+        imports = append(imports, lambda j: j.imports, inner_statements)
+        statements = append(statements, lambda j: j.statements, inner_statements)
 
     rstatement = next(filter(is_return, dependent_code.elements), None)
 
@@ -73,34 +73,36 @@ def j(s):
     if s.imports:
         for import_statement in s.imports:
             source, name = import_statement
-            print("import * as {} = require({})".format(name.value, source.value))
+            yield ("import * as {} = require({})".format(name.value, source.value))
 
     if s.statements:
-        print('\n'.join([str(statement) for statement in s.statements]))
+        yield from ([str(statement) for statement in s.statements])
 
     # returns, if any
     if s.exports:
         if isinstance(s.exports.expr, asttypes.Identifier):
             # simple export
-            print('export default {}'.format(s.exports.expr.value))
+            yield ('export default {}'.format(s.exports.expr.value))
         elif isinstance(s.exports.expr, asttypes.FuncExpr):
             # function export
             name = s.exports.expr.identifier
             args = ', '.join([p.value for p in s.exports.expr.parameters])
-            body = '\n'.join([str(line) for line in s.exports.expr.elements])
-            print('export default function {}({}){{\n{}\n}}'.format(name, args, body))
+            body = [str(line) for line in s.exports.expr.elements]
+            yield ('export default function {}({}) {{'.format(name, args))
+            yield from body
+            yield '}'
         elif isinstance(s.exports.expr, asttypes.Object):
             # object export
             props = s.exports.expr.properties
             as_props = ', '.join(['{} as {}'.format(p.left.value, p.right.value) for p in props])
-            print('export {{ {} }}'.format(as_props))
+            yield ('export {{ {} }}'.format(as_props))
 
 def main():
     for fn in glob("tests/*"):
         tree = parsed(fn)
         l = juice(tree)
         for x in l:
-            j(x)
+            print(list(j(x)))
 
 if __name__ == "__main__":
     main()
