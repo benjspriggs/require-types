@@ -28,7 +28,7 @@ def export_from_dependent_code(dependent_code):
     return next(filter(is_return, dependent_code.elements), None)
 
 def statements_from_dependent_code(dependent_code):
-    return [s for s in dependent_code.elements if not is_return(s) and not is_define(s)]
+    return (s for s in dependent_code.elements if not is_return(s) and not is_define(s))
 
 def module_from_statement(statement):
     if not is_define(statement):
@@ -96,10 +96,10 @@ def module_from_statement(statement):
 
     statements = statements_from_dependent_code(dependent_code)
 
-    nested_define_statements = [s for s in dependent_code.elements if is_define(s)]
+    nested_define_statements = (s for s in dependent_code.elements if is_define(s))
 
     if nested_define_statements:
-        inner_statements = list(flatten([module_from_statement(s) for s in nested_define_statements]))
+        inner_statements = (flatten([module_from_statement(s) for s in nested_define_statements]))
         imports = append(imports, lambda m: m.imports, inner_statements)
         statements = append(statements, lambda m: m.statements, inner_statements)
 
@@ -171,8 +171,8 @@ def format_module(s):
             ```
             """
             name = s.exports.expr.identifier
-            args = ', '.join([p.value for p in s.exports.expr.parameters])
-            body = [str(line) for line in s.exports.expr.elements]
+            args = ', '.join(p.value for p in s.exports.expr.parameters)
+            body = (str(line) for line in s.exports.expr.elements)
             yield ('export default function {}({}) {{'.format(name, args))
             yield from body
             yield '}'
@@ -185,7 +185,7 @@ def format_module(s):
             });
             """
             props = s.exports.expr.properties
-            as_props = ', '.join(['{} as {}'.format(p.left.value, p.right.value) for p in props])
+            as_props = ', '.join('{} as {}'.format(p.left.value, p.right.value) for p in props)
             yield ('export {{ {} }}'.format(as_props))
 
 def formatted_module(tree):
