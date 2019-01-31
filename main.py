@@ -8,12 +8,6 @@ def parsed(fn: str):
         s = f.readlines()
     return es5('\n'.join(s))
 
-# statement
-#   where the identifier == 'define'
-#   copy the arguments of define,
-#   copy the arguments to the inner function
-#   import the statements within
-#   and return a pair
 Juice = namedtuple('Juice', ['imports', 'statements', 'exports'])
 
 def is_return(s):
