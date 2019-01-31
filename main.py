@@ -100,8 +100,8 @@ def module_from_statement(statement):
 
     if nested_define_statements:
         inner_statements = list(flatten([module_from_statement(s) for s in nested_define_statements]))
-        imports = append(imports, lambda j: j.imports, inner_statements)
-        statements = append(statements, lambda j: j.statements, inner_statements)
+        imports = append(imports, lambda m: m.imports, inner_statements)
+        statements = append(statements, lambda m: m.statements, inner_statements)
 
     rstatement = export_from_dependent_code(dependent_code)
 
@@ -188,9 +188,13 @@ def format_module(s):
             as_props = ', '.join(['{} as {}'.format(p.left.value, p.right.value) for p in props])
             yield ('export {{ {} }}'.format(as_props))
 
+def modules(tree):
+    lines = [format_module(m) for m in module(tree)]
+    return flatten(lines)
+
 def formatted(fn):
     tree = parsed(fn)
-    return flatten([format_module(j) for j in module(tree)])
+    return modules(tree)
 
 def main():
     for fn in glob("tests/**/*"):
