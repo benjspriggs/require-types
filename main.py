@@ -137,7 +137,15 @@ def format_juice(s):
     # returns, if any
     if s.exports:
         if not hasattr(s.exports, 'expr'):
-            yield ('export {}'.format(s.exports))
+            """
+            ```js
+            define({
+                color: "black",
+                size: "unisize"
+            });
+            ```
+            """
+            yield ('export default {}'.format(s.exports))
             return
         if isinstance(s.exports.expr, asttypes.Identifier):
             """
