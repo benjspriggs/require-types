@@ -58,7 +58,14 @@ def juice_from_statement(statement):
         });
         ```
         """
+        if isinstance(define_args[0], asttypes.Object):
+            yield Juice(imports=None,
+                    statements=None,
+                    exports=define_args[0])
+            return
+
         dependent_code = define_args[0]
+
         if len(dependent_code.parameters) == 3:
             yield from juice_from_common_js(statement)
             return
@@ -129,6 +136,9 @@ def format_juice(s):
 
     # returns, if any
     if s.exports:
+        if not hasattr(s.exports, 'expr'):
+            yield ('export {}'.format(s.exports))
+            return
         if isinstance(s.exports.expr, asttypes.Identifier):
             """
             ```js
