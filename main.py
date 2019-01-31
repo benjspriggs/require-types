@@ -62,7 +62,7 @@ def format_juice(s):
     if s.imports:
         for import_statement in s.imports:
             source, name = import_statement
-            yield ("import * as {} = require({})".format(name.value, source.value))
+            yield ("import * as {} from {}".format(name.value, source.value))
 
     if s.statements:
         yield from ([str(statement) for statement in s.statements])
@@ -70,10 +70,35 @@ def format_juice(s):
     # returns, if any
     if s.exports:
         if isinstance(s.exports.expr, asttypes.Identifier):
-            # simple export
+            """
+            ```js
+            define(..., function () {
+                var name = ...;
+                return name;
+            });
+            ```
+            """
             yield ('export default {}'.format(s.exports.expr.value))
         elif isinstance(s.exports.expr, asttypes.FuncExpr):
-            # function export
+            """
+            ```js
+            define(..., function () {
+                var name = ...;
+                return function () {
+                    ...;
+                };
+            });
+            ```
+            or:
+            ```js
+            define(..., function () {
+                var name = ...;
+                return function NamedFunction() {
+                    ...;
+                };
+            });
+            ```
+            """
             name = s.exports.expr.identifier
             args = ', '.join([p.value for p in s.exports.expr.parameters])
             body = [str(line) for line in s.exports.expr.elements]
@@ -81,7 +106,13 @@ def format_juice(s):
             yield from body
             yield '}'
         elif isinstance(s.exports.expr, asttypes.Object):
-            # object export
+            """
+            define(..., function () {
+                return {
+                    ...;
+                };
+            });
+            """
             props = s.exports.expr.properties
             as_props = ', '.join(['{} as {}'.format(p.left.value, p.right.value) for p in props])
             yield ('export {{ {} }}'.format(as_props))
@@ -92,7 +123,7 @@ def formatted(fn):
 
 def main():
     for fn in glob("tests/*"):
-        print(list(formatted(fn)))
+        print('\n'.join(formatted(fn)))
 
 if __name__ == "__main__":
     main()
