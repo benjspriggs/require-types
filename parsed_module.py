@@ -1,13 +1,18 @@
 from collections import namedtuple
 from calmjs.parse import asttypes
 from utils import flatten, append
+from typing import Iterable, Tuple
 
-Module = namedtuple('Module', ['imports', 'statements', 'exports'])
+class Module:
+    def __init__(self, imports: Iterable[Tuple[str, str]], statements, exports):
+        self.imports = imports
+        self.statements = statements
+        self.exports = exports
 
-def is_return(s):
+def is_return(s: asttypes.Node) -> bool:
     return isinstance(s, asttypes.Return)
 
-def is_define(s):
+def is_define(s: asttypes.Node) -> bool:
     if not isinstance(s, asttypes.ExprStatement):
         return False
     return isinstance(s, asttypes.ExprStatement) \
@@ -18,13 +23,13 @@ def is_define(s):
 def module_from_common_js(statement):
     raise Exception("simplified commonjs modules not supported")
 
-def export_from_dependent_code(dependent_code):
+def export_from_dependent_code(dependent_code) -> asttypes.Node:
     return next(filter(is_return, dependent_code.elements), None)
 
-def statements_from_dependent_code(dependent_code):
+def statements_from_dependent_code(dependent_code) -> Iterable[asttypes.Node]:
     return (s for s in dependent_code.elements if not is_return(s) and not is_define(s))
 
-def module_from_statement(statement):
+def module_from_statement(statement: asttypes.Node) -> Module:
     if not is_define(statement):
         yield Module(imports=None, statements=[statement], exports=None)
         return
@@ -103,7 +108,7 @@ def module_from_statement(statement):
             statements=statements, 
             exports=rstatement)
 
-def module(tree):
+def module(tree: asttypes.ES5Program) -> Iterable[Module]:
     if not isinstance(tree, asttypes.ES5Program):
         raise Exception("not a program")
 
@@ -113,7 +118,7 @@ def module(tree):
         else:
             yield from module_from_statement(statement)
 
-def format_module(s):
+def format_module(s: Module) -> Iterable[str]:
     if s.imports:
         for import_statement in s.imports:
             source, name = import_statement
@@ -182,6 +187,6 @@ def format_module(s):
             as_props = ', '.join('{} as {}'.format(p.left.value, p.right.value) for p in props)
             yield ('export {{ {} }}'.format(as_props))
 
-def formatted_module(tree):
+def formatted_module(tree: asttypes.ES5Program) -> Iterable[str]:
     return flatten(format_module(m) for m in module(tree))
 
