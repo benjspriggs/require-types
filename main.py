@@ -8,7 +8,7 @@ def parsed(fn: str):
         s = f.readlines()
     return es5('\n'.join(s))
 
-Juice = namedtuple('Juice', ['imports', 'statements', 'exports'])
+Module = namedtuple('Module', ['imports', 'statements', 'exports'])
 
 def is_return(s):
     return isinstance(s, asttypes.Return)
@@ -21,7 +21,7 @@ def is_define(s):
             and hasattr(s.expr.identifier, 'value') \
             and s.expr.identifier.value == "define"
 
-def juice_from_common_js(statement):
+def module_from_common_js(statement):
     raise Exception("simplified commonjs modules not supported")
 
 def export_from_dependent_code(dependent_code):
@@ -30,9 +30,9 @@ def export_from_dependent_code(dependent_code):
 def statements_from_dependent_code(dependent_code):
     return [s for s in dependent_code.elements if not is_return(s) and not is_define(s)]
 
-def juice_from_statement(statement):
+def module_from_statement(statement):
     if not is_define(statement):
-        yield Juice(imports=None, statements=[statement], exports=None)
+        yield Module(imports=None, statements=[statement], exports=None)
         return
 
     define_args = statement.expr.args.items
@@ -53,7 +53,7 @@ def juice_from_statement(statement):
         ```
         """
         if isinstance(define_args[0], asttypes.Object):
-            yield Juice(imports=None,
+            yield Module(imports=None,
                     statements=None,
                     exports=define_args[0])
             return
@@ -61,11 +61,11 @@ def juice_from_statement(statement):
         dependent_code = define_args[0]
 
         if len(dependent_code.parameters) == 3:
-            yield from juice_from_common_js(statement)
+            yield from module_from_common_js(statement)
             return
         else:
-            yield Juice(imports=None, \
-                    statements=statements_from_dependent_code(dependent_code), \
+            yield Module(imports=None,
+                    statements=statements_from_dependent_code(dependent_code),
                     exports=export_from_dependent_code(dependent_code))
             return
     if len(define_args) == 2:
@@ -99,27 +99,27 @@ def juice_from_statement(statement):
     nested_define_statements = [s for s in dependent_code.elements if is_define(s)]
 
     if nested_define_statements:
-        inner_statements = list(flatten([juice_from_statement(s) for s in nested_define_statements]))
+        inner_statements = list(flatten([module_from_statement(s) for s in nested_define_statements]))
         imports = append(imports, lambda j: j.imports, inner_statements)
         statements = append(statements, lambda j: j.statements, inner_statements)
 
     rstatement = export_from_dependent_code(dependent_code)
 
-    yield Juice(imports=imports,
+    yield Module(imports=imports,
             statements=statements, 
             exports=rstatement)
 
-def juice(tree):
+def module(tree):
     if not isinstance(tree, asttypes.ES5Program):
         raise Exception("not a program")
 
     for statement in tree.children():
         if not isinstance(statement, asttypes.ExprStatement):
-            yield Juice(imports=None, statements=[statement], exports=None)
+            yield Module(imports=None, statements=[statement], exports=None)
         else:
-            yield from juice_from_statement(statement)
+            yield from module_from_statement(statement)
 
-def format_juice(s):
+def format_module(s):
     if s.imports:
         for import_statement in s.imports:
             source, name = import_statement
@@ -190,7 +190,7 @@ def format_juice(s):
 
 def formatted(fn):
     tree = parsed(fn)
-    return flatten([format_juice(j) for j in juice(tree)])
+    return flatten([format_module(j) for j in module(tree)])
 
 def main():
     for fn in glob("tests/**/*"):
