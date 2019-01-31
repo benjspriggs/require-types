@@ -146,8 +146,7 @@ def format_juice(s):
             ```
             """
             yield ('export default {}'.format(s.exports))
-            return
-        if isinstance(s.exports.expr, asttypes.Identifier):
+        elif isinstance(s.exports.expr, asttypes.Identifier):
             """
             ```js
             define(..., function () {
