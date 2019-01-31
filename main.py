@@ -27,13 +27,73 @@ def is_define(s):
             and hasattr(s.expr.identifier, 'value') \
             and s.expr.identifier.value == "define"
 
+def juice_from_common_js(statement):
+    raise Exception("simplified commonjs modules not supported")
+
+def export_from_dependent_code(dependent_code):
+    return next(filter(is_return, dependent_code.elements), None)
+
+def statements_from_dependent_code(dependent_code):
+    return [s for s in dependent_code.elements if not is_return(s) and not is_define(s)]
+
 def juice_from_statement(statement):
-    import_source, dependent_code = statement.expr.args.items
+    if not is_define(statement):
+        yield Juice(imports=None, statements=[statement], exports=None)
+        return
+
+    define_args = statement.expr.args.items
+
+    if len(define_args) == 1:
+        """
+        Either a CommonJS module or a simple function export.
+        ```js
+        define(function() {
+            ...
+        });
+        ```
+        or
+        ```js
+        define(function(require, exports, module) {
+            ...
+        });
+        ```
+        """
+        dependent_code = define_args[0]
+        if len(dependent_code.parameters) == 3:
+            yield from juice_from_common_js(statement)
+            return
+        else:
+            yield Juice(imports=None, \
+                    statements=statements_from_dependent_code(dependent_code), \
+                    exports=export_from_dependent_code(dependent_code))
+            return
+    if len(define_args) == 2:
+        """
+        Function with dependencies.
+        ```js
+        define([...], function(...args) {
+            ...
+        });
+        ```
+        """
+        import_source, dependent_code = define_args
+    if len(define_args) == 3:
+        """
+        Explicitly defined module.
+        ```js
+        define("name/of/module", [...], function(...args) {
+            ...
+        });
+        ```
+        """
+        _, import_source, dependent_code = define_args
+
+    import_source, dependent_code = define_args
     imported_names = dependent_code.parameters
 
     imports = zip(import_source.items, imported_names)
 
-    statements = [s for s in dependent_code.elements if not is_return(s) and not is_define(s)]
+    statements = statements_from_dependent_code(dependent_code)
 
     nested_define_statements = [s for s in dependent_code.elements if is_define(s)]
 
@@ -42,7 +102,7 @@ def juice_from_statement(statement):
         imports = append(imports, lambda j: j.imports, inner_statements)
         statements = append(statements, lambda j: j.statements, inner_statements)
 
-    rstatement = next(filter(is_return, dependent_code.elements), None)
+    rstatement = export_from_dependent_code(dependent_code)
 
     yield Juice(imports=imports,
             statements=statements, 
@@ -122,7 +182,7 @@ def formatted(fn):
     return flatten([format_juice(j) for j in juice(tree)])
 
 def main():
-    for fn in glob("tests/*"):
+    for fn in glob("tests/**/*"):
         print('\n'.join(formatted(fn)))
 
 if __name__ == "__main__":
