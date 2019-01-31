@@ -188,13 +188,12 @@ def format_module(s):
             as_props = ', '.join(['{} as {}'.format(p.left.value, p.right.value) for p in props])
             yield ('export {{ {} }}'.format(as_props))
 
-def modules(tree):
-    lines = [format_module(m) for m in module(tree)]
-    return flatten(lines)
+def formatted_module(tree):
+    return flatten(format_module(m) for m in module(tree))
 
 def formatted(fn):
     tree = parsed(fn)
-    return modules(tree)
+    return formatted_module(tree)
 
 def main():
     for fn in glob("tests/**/*"):
