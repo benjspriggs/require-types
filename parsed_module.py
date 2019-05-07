@@ -15,7 +15,10 @@ class Module:
 
         for import_statement in self.imports:
             source, name = import_statement
-            yield ("import * as {} from {}".format(name.value, source.value))
+            yield ('/**')
+            yield (" * @type {{typeof import({})}} {}".format(source.value, name.value))
+            yield (' */')
+            yield ("var {} = require({})".format(name.value, source.value))
 
     def formatted_statements(self) -> Iterable[str]:
         if not self.statements:
@@ -35,7 +38,7 @@ class Module:
             });
             ```
             """
-            yield ('export default {}'.format(s.exports))
+            yield ('module.exports = {}'.format(s.exports))
         elif isinstance(s.exports.expr, asttypes.Identifier):
             """
             ```js
@@ -45,7 +48,7 @@ class Module:
             });
             ```
             """
-            yield ('export default {}'.format(s.exports.expr.value))
+            yield ('module.exports = {}'.format(s.exports.expr.value))
         elif isinstance(s.exports.expr, asttypes.FuncExpr):
             """
             ```js
@@ -69,7 +72,7 @@ class Module:
             name = s.exports.expr.identifier
             args = ', '.join(p.value for p in s.exports.expr.parameters)
             body = (str(line) for line in s.exports.expr.elements)
-            yield ('export default function {}({}) {{'.format(name, args))
+            yield ('module.exports = function {}({}) {{'.format(name or "", args))
             yield from body
             yield '}'
         elif isinstance(s.exports.expr, asttypes.Object):
@@ -82,12 +85,14 @@ class Module:
             """
             props = s.exports.expr.properties
             as_props = ', '.join('{} as {}'.format(p.left.value, p.right.value) for p in props)
-            yield ('export {{ {} }}'.format(as_props))
+            yield ('module.exports = {{ {} }}'.format(as_props))
 
     def formatted(self) -> Iterable[str]:
+        yield "define(function(require, exports, module) {"
         yield from self.formatted_imports()
         yield from self.formatted_statements()
         yield from self.formatted_exports()
+        yield "});"
 
 
 def is_return(s: asttypes.Node) -> bool:
